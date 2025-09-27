@@ -5,7 +5,10 @@
 ## Some Videos
 
 [![What is Time Series Analysis?](https://img.youtube.com/vi/GE3JOFwTWVM/default.jpg)](https://youtu.be/nTQUwghvy5Q)
+What is Time Series Analysis?
 
 [![Complete Time Series Analysis and Forecasting with Python](https://img.youtube.com/vi/eKiXtGzEjos/default.jpg)](https://youtu.be/GE3JOFwTWVM)
+Complete Time Series Analysis and Forecasting with Python
 
-## [![LSTM Time Series Forecasting with TensorFlow & Python – Step-by-Step Tutorial](https://img.youtube.com/vi/94PlBzgeq90/default.jpg)](https://youtu.be/nTQUwghvy5Q)
+[![LSTM Time Series Forecasting with TensorFlow & Python – Step-by-Step Tutorial](https://img.youtube.com/vi/94PlBzgeq90/default.jpg)](https://youtu.be/nTQUwghvy5Q)
+LSTM Time Series Forecasting with TensorFlow & Python – Step-by-Step Tutorial

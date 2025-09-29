@@ -13,7 +13,7 @@ const url = "https://www.sharesansar.com/today-share-price";
 const dir = "rawHtml";
 const sector = "1"; // 1 = Commercial Bank
 const startDate = "2025-01-01";
-const endDate = "2025-09-26";
+const endDate = "2025-01-02";
 
 // Ensure output directory exists
 if (!fs.existsSync(dir)) {

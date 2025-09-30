@@ -4,16 +4,23 @@ import path from "path";
 
 const puppeteerParams = {
   executablePath: "/usr/bin/chromium",
-  headless: true,
-  args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  headless: "new",
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
+    "--blink-settings=imagesEnabled=false",
+  ],
 };
 
 // Parameters for scraping
 const url = "https://www.sharesansar.com/today-share-price";
-const dir = "rawHtml";
+const dir = "new_html";
 const sector = "1"; // 1 = Commercial Bank
-const startDate = "2025-01-01";
-const endDate = "2025-01-02";
+const startDate = "2015-01-01";
+const endDate = "2015-02-01";
 
 // Ensure output directory exists
 if (!fs.existsSync(dir)) {
@@ -37,24 +44,19 @@ function getDateRange(startDate, endDate) {
   }
   return dates;
 }
-function delay(time) {
-  return new Promise((resolve) => setTimeout(resolve, time));
-}
 
 async function scrapeSingleDate(page, date) {
   const filePath = path.join(dir, `${date}.html`);
 
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#sector");
-  await page.waitForSelector("#fromdate");
-  await page.waitForSelector("#btn_todayshareprice_submit");
-
   await page.select("#sector", sector);
   await page.$eval("#fromdate", (el, value) => (el.value = value), date);
 
-  console.log(`Date: ${date}...`);
+  console.log(`Scraping Date: ${date}...`);
 
-  await Promise.all([page.click("#btn_todayshareprice_submit"), delay(3000)]);
+  await Promise.all([
+    page.click("#btn_todayshareprice_submit"),
+    page.waitForSelector("#headFixed tbody tr"),
+  ]);
   const rawHtml = await page.$eval("#headFixed", (el) => el.innerHTML);
 
   // Save to file
@@ -66,6 +68,11 @@ async function scrapeAllDates(startDate, endDate) {
   const dates = getDateRange(startDate, endDate);
   const browser = await puppeteer.launch(puppeteerParams);
   const page = await browser.newPage();
+
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#sector");
+  await page.waitForSelector("#fromdate");
+  await page.waitForSelector("#btn_todayshareprice_submit");
 
   for (const date of dates) {
     try {

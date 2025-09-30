@@ -53,7 +53,7 @@ def html_to_csv(file_name, html_folder, csv_folder):
             writer.writerows(data)
 
 
-# Combine into a single csv
+# Combine into a single csv with date column
 def combine_csv(csv_folder, combined_file_path):
     csv_files = sorted(
         [f for f in os.listdir(csv_folder) if f.endswith(".csv")],
@@ -63,14 +63,20 @@ def combine_csv(csv_folder, combined_file_path):
     combined_data = []
     for i, file in enumerate(csv_files):
         path = os.path.join(csv_folder, file)
+        date_str = file[:-4]  # Extract date from filename (YYYY-MM-DD)
         with open(path, "r", encoding="utf-8") as f:
             reader = csv.reader(f)
             rows = list(reader)
             if i == 0:
-                # Keep header from first CSV only
-                combined_data.extend(rows)
+                # Add 'Date' as first column in header
+                header = ["Date", *rows[0]]
+                combined_data.append(header)
+                # Add date to each data row
+                for row in rows[1:]:
+                    combined_data.append([date_str, *row])
             else:
-                combined_data.extend(rows[1:])  # Skip header
+                for row in rows[1:]:
+                    combined_data.append([date_str, *row])
 
     with open(combined_file_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -90,5 +96,5 @@ for filename in os.listdir(html_folder):
         html_to_csv(filename.removesuffix(".html"), html_folder, csv_folder)
 
 # Combine all CSVs
-combined_file_path = os.path.join(csv_folder, "combined_market_data.csv")
+combined_file_path = "./combined_market_data.csv"
 combine_csv(csv_folder, combined_file_path)

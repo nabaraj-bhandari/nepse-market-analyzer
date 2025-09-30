@@ -19,8 +19,8 @@ const puppeteerParams = {
 const url = "https://www.sharesansar.com/today-share-price";
 const dir = "raw_html";
 const sector = "1";
-const startDate = "2016-01-01";
-const endDate = "2017-01-01";
+const startDate = "2017-01-01";
+const endDate = "2018-01-01";
 
 // ensure output dir
 if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

@@ -4,75 +4,105 @@ import path from "path";
 
 const puppeteerParams = {
   executablePath: "/usr/bin/chromium",
-  headless: false,
+  headless: "new",
   args: [
     "--no-sandbox",
-    // "--disable-setuid-sandbox",
-    // "--disable-gpu",
-    // "--disable-dev-shm-usage",
-    // "--disable-extensions",
+    "--disable-setuid-sandbox",
+    "--disable-gpu",
+    "--disable-dev-shm-usage",
+    "--disable-extensions",
     "--blink-settings=imagesEnabled=false",
   ],
 };
 
-// Parameters for scraping
+// params
 const url = "https://www.sharesansar.com/today-share-price";
-const dir = "new_html";
-const sector = "1"; // 1 = Commercial Bank
-const startDate = "2015-01-01";
-const endDate = "2015-02-01";
+const dir = "raw_html";
+const sector = "1";
+const startDate = "2016-01-01";
+const endDate = "2017-01-01";
 
-// Ensure output directory exists
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
-}
+// ensure output dir
+if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-// Helper Functions
+// helpers
 function getDateRange(startDate, endDate) {
   const dates = [];
-  let current = new Date(startDate);
-  const end = new Date(endDate);
-
-  while (current <= end) {
-    // Format as YYYY-MM-DD
-    const year = current.getFullYear();
-    const month = String(current.getMonth() + 1).padStart(2, "0");
-    const day = String(current.getDate()).padStart(2, "0");
+  const s = new Date(startDate);
+  const e = new Date(endDate);
+  for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     dates.push(`${year}-${month}-${day}`);
-
-    current.setDate(current.getDate() + 1);
   }
   return dates;
+}
+function delay(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// set input value robustly (dispatch input/change)
+async function setDateValue(page, selector, value) {
+  await page.evaluate(
+    (sel, val) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.value = val;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    selector,
+    value,
+  );
 }
 
 async function scrapeSingleDate(page, date) {
   const filePath = path.join(dir, `${date}.html`);
 
+  // set sector and date
   await page.select("#sector", sector);
-  await page.$eval("#fromdate", (el, value) => (el.value = value), date);
+  await setDateValue(page, "#fromdate", date);
 
-  console.log(`Scraping Date: ${date}...`);
+  console.log(`Scraping Date: ${date} ...`);
 
-  const previousHtml = await page.$eval("#headFixed", (el) => el.innerHTML);
+  // take a snapshot of current HTML (for diagnostics only)
+  const previousHtml = await page
+    .$eval("#headFixed", (el) => el.innerHTML)
+    .catch(() => "");
 
+  // click submit and then wait exactly 3 seconds (your constraint)
   await page.click("#btn_todayshareprice_submit");
+  await delay(3000);
 
-  await page.waitForFunction(
-    (oldHtml) => {
-      const table = document.querySelector("#headFixed");
-      if (table.innerHTML !== oldHtml) return true;
-      const content = table.innerText.trim();
-      if (content.includes("No Record Found.")) return true;
-      return false;
-    },
-    {},
-    previousHtml,
-  );
+  // read the table HTML (fast: innerHTML)
+  const rawHtml = await page
+    .$eval("#headFixed", (el) => el.innerHTML)
+    .catch(() => "");
 
-  const rawHtml = await page.$eval("#headFixed", (el) => el.innerHTML);
+  // handle cases
+  if (!rawHtml || rawHtml.trim() === "") {
+    // nothing found — write a minimal placeholder so you know it ran
+    await fs.promises.writeFile(filePath, "NO_DATA", "utf8");
+    console.log(`No HTML content for ${date} → wrote NO_DATA`);
+    return;
+  }
 
-  // Save to file
-  fs.writeFileSync(filePath, rawHtml, "utf8");
+  // check explicit "No Record Found."
+  if (rawHtml.includes("No Record Found.")) {
+    await fs.promises.writeFile(filePath, "NO_DATA", "utf8");
+    console.log(`No Record Found for ${date} → wrote NO_DATA`);
+    return;
+  }
+
+  // if the HTML is identical to previous snapshot, still save (optional)
+  if (rawHtml === previousHtml) {
+    // optional: warn, but still save so you have a file for this date
+    console.warn(`Warning: table HTML unchanged for ${date} (saving anyway)`);
+  }
+
+  // save actual table HTML
+  await fs.promises.writeFile(filePath, rawHtml, "utf8");
   console.log(`HTML saved to ${filePath}`);
 }
 
@@ -80,12 +110,8 @@ async function scrapeAllDates(startDate, endDate) {
   const dates = getDateRange(startDate, endDate);
   const browser = await puppeteer.launch(puppeteerParams);
   const page = await browser.newPage();
-  await page.setViewport({
-    width: 1920,
-    height: 1080,
-    deviceScaleFactor: 1,
-  });
 
+  // load page once and wait for controls
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#sector");
   await page.waitForSelector("#fromdate");
@@ -96,6 +122,10 @@ async function scrapeAllDates(startDate, endDate) {
       await scrapeSingleDate(page, date);
     } catch (err) {
       console.error(`Failed to scrape ${date}:`, err);
+      // write marker so you can retry only failed dates later
+      await fs.promises
+        .writeFile(path.join(dir, `${date}.err`), String(err), "utf8")
+        .catch(() => {});
     }
   }
 
@@ -103,5 +133,5 @@ async function scrapeAllDates(startDate, endDate) {
   console.log("Scraping completed for all dates!");
 }
 
-// Run scraping for a date range
+// run
 scrapeAllDates(startDate, endDate).catch(console.error);

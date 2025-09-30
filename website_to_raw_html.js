@@ -4,13 +4,13 @@ import path from "path";
 
 const puppeteerParams = {
   executablePath: "/usr/bin/chromium",
-  headless: "new",
+  headless: false,
   args: [
     "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-gpu",
-    "--disable-dev-shm-usage",
-    "--disable-extensions",
+    // "--disable-setuid-sandbox",
+    // "--disable-gpu",
+    // "--disable-dev-shm-usage",
+    // "--disable-extensions",
     "--blink-settings=imagesEnabled=false",
   ],
 };
@@ -53,10 +53,22 @@ async function scrapeSingleDate(page, date) {
 
   console.log(`Scraping Date: ${date}...`);
 
-  await Promise.all([
-    page.click("#btn_todayshareprice_submit"),
-    page.waitForSelector("#headFixed tbody tr"),
-  ]);
+  const previousHtml = await page.$eval("#headFixed", (el) => el.innerHTML);
+
+  await page.click("#btn_todayshareprice_submit");
+
+  await page.waitForFunction(
+    (oldHtml) => {
+      const table = document.querySelector("#headFixed");
+      if (table.innerHTML !== oldHtml) return true;
+      const content = table.innerText.trim();
+      if (content.includes("No Record Found.")) return true;
+      return false;
+    },
+    {},
+    previousHtml,
+  );
+
   const rawHtml = await page.$eval("#headFixed", (el) => el.innerHTML);
 
   // Save to file
@@ -68,6 +80,11 @@ async function scrapeAllDates(startDate, endDate) {
   const dates = getDateRange(startDate, endDate);
   const browser = await puppeteer.launch(puppeteerParams);
   const page = await browser.newPage();
+  await page.setViewport({
+    width: 1920,
+    height: 1080,
+    deviceScaleFactor: 1,
+  });
 
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#sector");
